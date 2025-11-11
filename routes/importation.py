@@ -3,6 +3,8 @@ from bson import ObjectId
 from datetime import datetime
 import uuid
 from pathlib import Path
+import os
+import base64
 from config.db import db
 from schemas.importation import importEntity, importsEntity
 from schemas.car import carEntity
@@ -11,9 +13,21 @@ from models.importation import Import, ImportUpdate
 
 imports = APIRouter()
 
+# Detectar si estamos en Vercel (serverless)
+IS_VERCEL = os.getenv("VERCEL") == "1"
+
 # Configurar directorio para imágenes
-UPLOAD_DIR = Path("uploads/imports")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+# En Vercel, usar /tmp que es el único directorio escribible
+if IS_VERCEL:
+    UPLOAD_DIR = Path("/tmp/uploads/imports")
+else:
+    UPLOAD_DIR = Path("uploads/imports")
+
+# Intentar crear el directorio (puede fallar en Vercel, pero no debe bloquear)
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    print(f"Advertencia: No se pudo crear directorio de uploads: {e}")
 
 # Extensiones permitidas
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -21,10 +35,15 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 @imports.get('/imports')
 def list_imports():
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
     return importsEntity(db.imports.find())
 
 @imports.post('/imports', status_code=status.HTTP_201_CREATED)
 def create_import(import_data: Import):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     # Verificar que el auto exista
     if not ObjectId.is_valid(import_data.car_id):
         raise HTTPException(status_code=400, detail="ID de auto inválido")
@@ -84,6 +103,9 @@ def create_import(import_data: Import):
 
 @imports.get('/imports/{id}')
 def detail_import(id: str):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -107,6 +129,9 @@ def detail_import(id: str):
 
 @imports.put('/imports/{id}')
 def update_import(id: str, import_update: ImportUpdate):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -218,6 +243,9 @@ def update_import(id: str, import_update: ImportUpdate):
 
 @imports.delete('/imports/{id}', status_code=status.HTTP_204_NO_CONTENT)
 def delete_import(id: str):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -230,6 +258,9 @@ def delete_import(id: str):
 @imports.get('/imports/car/{car_id}')
 def get_import_by_car(car_id: str):
     """Obtener la importación de un auto específico (un auto solo puede tener una importación)"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(car_id):
         raise HTTPException(status_code=400, detail="ID de auto inválido")
     
@@ -255,6 +286,9 @@ def get_import_by_car(car_id: str):
 @imports.get('/imports/client/{client_id}')
 def get_imports_by_client(client_id: str):
     """Obtener todas las importaciones de un cliente específico"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(client_id):
         raise HTTPException(status_code=400, detail="ID de cliente inválido")
     
@@ -268,6 +302,9 @@ def get_imports_by_client(client_id: str):
 @imports.get('/imports/{id}/history')
 def get_import_history(id: str):
     """Obtener el historial de estados de una importación (timeline)"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -305,6 +342,9 @@ def get_import_history(id: str):
 @imports.post('/imports/{id}/images', status_code=status.HTTP_201_CREATED)
 async def upload_image(id: str, file: UploadFile = File(...)):
     """Subir una imagen a una importación"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -332,21 +372,18 @@ async def upload_image(id: str, file: UploadFile = File(...)):
     # Generar nombre único para el archivo
     file_id = str(uuid.uuid4())
     filename = f"{file_id}{file_ext}"
-    file_path = UPLOAD_DIR / filename
     
-    # Guardar archivo
-    try:
-        with open(file_path, "wb") as buffer:
-            buffer.write(contents)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al guardar archivo: {str(e)}")
+    # Guardar imagen usando el handler
+    from utils.image_handler import save_image_file
+    success, image_data, error = save_image_file(contents, filename)
     
-    # Generar URL de la imagen
-    image_url = f"/uploads/imports/{filename}"
+    if not success:
+        raise HTTPException(status_code=500, detail=error or "Error al guardar imagen")
     
     # Agregar imagen a la importación
+    # En Vercel, image_data será base64. En local, será URL
     images = import_item.get("images", [])
-    images.append(image_url)
+    images.append(image_data)
     
     db.imports.update_one(
         {"_id": ObjectId(id)},
@@ -360,13 +397,17 @@ async def upload_image(id: str, file: UploadFile = File(...)):
     
     return {
         "message": "Imagen subida correctamente",
-        "image_url": image_url,
-        "filename": filename
+        "image_url": image_data if IS_VERCEL else image_data,  # En Vercel es base64, en local es URL
+        "filename": filename,
+        "storage_type": "base64" if IS_VERCEL else "file"
     }
 
-@imports.delete('/imports/{id}/images/{filename}')
-def delete_image(id: str, filename: str):
-    """Eliminar una imagen de una importación"""
+@imports.delete('/imports/{id}/images/{image_index}')
+def delete_image(id: str, image_index: int):
+    """Eliminar una imagen de una importación por índice"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -375,24 +416,27 @@ def delete_image(id: str, filename: str):
     if not import_item:
         raise HTTPException(status_code=404, detail="Importación no encontrada")
     
-    # Construir URL y ruta del archivo
-    image_url = f"/uploads/imports/{filename}"
-    file_path = UPLOAD_DIR / filename
-    
-    # Verificar que la imagen esté en la lista de imágenes de la importación
+    # Obtener lista de imágenes
     images = import_item.get("images", [])
-    if image_url not in images:
-        raise HTTPException(status_code=404, detail="Imagen no encontrada en esta importación")
     
-    # Eliminar archivo del sistema de archivos
-    if file_path.exists():
-        try:
-            file_path.unlink()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error al eliminar archivo: {str(e)}")
+    # Validar índice
+    if image_index < 0 or image_index >= len(images):
+        raise HTTPException(status_code=404, detail="Índice de imagen inválido")
+    
+    # Obtener la imagen a eliminar
+    image_to_delete = images[image_index]
+    
+    # Si es una URL (local), intentar eliminar el archivo
+    if not IS_VERCEL and image_to_delete.startswith("/uploads/"):
+        from utils.image_handler import delete_image_file
+        filename = Path(image_to_delete).name
+        success, error = delete_image_file(filename)
+        if not success and error:
+            # No fallar si no se puede eliminar el archivo, solo loguear
+            print(f"Advertencia: {error}")
     
     # Eliminar imagen de la lista
-    images.remove(image_url)
+    images.pop(image_index)
     
     db.imports.update_one(
         {"_id": ObjectId(id)},

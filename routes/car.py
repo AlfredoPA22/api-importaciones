@@ -8,6 +8,9 @@ cars = APIRouter()
 
 @cars.get('/cars')
 def list_cars():
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     cars_list = list(db.car.find())
     result = []
     
@@ -30,6 +33,9 @@ def list_cars():
 
 @cars.post('/cars', status_code=status.HTTP_201_CREATED)
 def create_car(car: Car):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     new_car = dict(car)
     result = db.car.insert_one(new_car)
     
@@ -38,6 +44,9 @@ def create_car(car: Car):
 
 @cars.get('/cars/{id}')
 def detail_car(id: str):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -64,6 +73,9 @@ def detail_car(id: str):
 
 @cars.put('/cars/{id}')
 def update_car(id: str, car_update: CarUpdate):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -88,6 +100,9 @@ def update_car(id: str, car_update: CarUpdate):
 
 @cars.delete('/cars/{id}', status_code=status.HTTP_204_NO_CONTENT)
 def delete_car(id: str):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     

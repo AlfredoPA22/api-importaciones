@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import os
 from routes.car import cars
 from routes.importation import imports
 from routes.client import clients
@@ -48,16 +49,24 @@ app.include_router(clients, tags=["Clientes"])
 app.include_router(imports, tags=["Importaciones"])
 app.include_router(share, tags=["Compartir"])
 
-# Montar directorio de archivos estáticos para imágenes (al final)
-# Crear estructura de directorios
-uploads_base = Path("uploads")
-uploads_imports = Path("uploads/imports")
-uploads_base.mkdir(exist_ok=True)
-uploads_imports.mkdir(parents=True, exist_ok=True)
+# Detectar si estamos en Vercel (serverless)
+IS_VERCEL = os.getenv("VERCEL") == "1"
 
-# Montar archivos estáticos solo si el directorio existe
-if uploads_base.exists():
+# Solo montar archivos estáticos si NO estamos en Vercel
+# En Vercel, los archivos estáticos deben manejarse de otra forma (S3, Cloudinary, etc.)
+if not IS_VERCEL:
+    # Montar directorio de archivos estáticos para imágenes (al final)
+    # Crear estructura de directorios
+    uploads_base = Path("uploads")
+    uploads_imports = Path("uploads/imports")
     try:
-        app.mount("/uploads", StaticFiles(directory=str(uploads_base)), name="uploads")
+        uploads_base.mkdir(exist_ok=True)
+        uploads_imports.mkdir(parents=True, exist_ok=True)
+        
+        # Montar archivos estáticos solo si el directorio existe
+        if uploads_base.exists():
+            app.mount("/uploads", StaticFiles(directory=str(uploads_base)), name="uploads")
     except Exception as e:
         print(f"Advertencia: No se pudo montar directorio de uploads: {e}")
+else:
+    print("Modo Vercel detectado: los archivos estáticos no se montarán localmente")

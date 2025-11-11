@@ -23,6 +23,9 @@ def generate_token() -> str:
 @share.post('/imports/{import_id}/share', status_code=status.HTTP_201_CREATED)
 def create_share_token(import_id: str, share_data: Optional[ShareTokenCreate] = None):
     """Genera una URL única para compartir una importación"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(import_id):
         raise HTTPException(status_code=400, detail="ID de importación inválido")
     
@@ -83,6 +86,9 @@ def create_share_token(import_id: str, share_data: Optional[ShareTokenCreate] = 
 @share.get('/share/{token}')
 def get_import_by_token(token: str):
     """Endpoint público para ver una importación por token (solo muestra costos_cliente)"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     # Buscar el token
     token_doc = db.share_tokens.find_one({"token": token})
     if not token_doc:
@@ -127,6 +133,9 @@ def get_import_by_token(token: str):
 @share.delete('/imports/{import_id}/share/{token}')
 def deactivate_share_token(import_id: str, token: str):
     """Desactiva un token de compartir"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(import_id):
         raise HTTPException(status_code=400, detail="ID de importación inválido")
     
@@ -148,6 +157,9 @@ def deactivate_share_token(import_id: str, token: str):
 @share.get('/imports/{import_id}/share')
 def get_share_tokens(import_id: str):
     """Obtener todos los tokens de compartir de una importación"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(import_id):
         raise HTTPException(status_code=400, detail="ID de importación inválido")
     

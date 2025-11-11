@@ -9,10 +9,15 @@ clients = APIRouter()
 
 @clients.get('/clients')
 def list_clients():
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
     return clientsEntity(db.clients.find())
 
 @clients.post('/clients', status_code=status.HTTP_201_CREATED)
 def create_client(client: Client):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     new_client = dict(client)
     new_client["created_at"] = datetime.utcnow()
     new_client["updated_at"] = datetime.utcnow()
@@ -23,6 +28,9 @@ def create_client(client: Client):
 
 @clients.get('/clients/{id}')
 def detail_client(id: str):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -40,6 +48,9 @@ def detail_client(id: str):
 
 @clients.put('/clients/{id}')
 def update_client(id: str, client_update: ClientUpdate):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
@@ -64,6 +75,9 @@ def update_client(id: str, client_update: ClientUpdate):
 
 @clients.delete('/clients/{id}', status_code=status.HTTP_204_NO_CONTENT)
 def delete_client(id: str):
+    if db is None:
+        raise HTTPException(status_code=500, detail="Error de conexión a la base de datos")
+    
     if not ObjectId.is_valid(id):
         raise HTTPException(status_code=400, detail="ID inválido")
     
