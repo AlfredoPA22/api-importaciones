@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from routes.car import cars
 from routes.importation import imports
 from routes.client import clients
@@ -33,22 +35,29 @@ def root():
 @app.get("/health")
 def health_check():
     """Endpoint de salud para verificar que la API está funcionando"""
-    try:
-        from config.db import db
-        # Intentar hacer un ping a la base de datos
-        db.command('ping')
-        return {
-            "status": "healthy",
-            "database": "connected"
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "database": "disconnected",
-            "error": str(e)
-        }
+    # No hacer ping a la base de datos aquí para evitar bloqueos
+    # El health check solo verifica que la API esté corriendo
+    return {
+        "status": "healthy",
+        "api": "running"
+    }
 
+# Incluir routers primero (antes de montar archivos estáticos)
 app.include_router(cars, tags=["Autos"])
 app.include_router(clients, tags=["Clientes"])
 app.include_router(imports, tags=["Importaciones"])
 app.include_router(share, tags=["Compartir"])
+
+# Montar directorio de archivos estáticos para imágenes (al final)
+# Crear estructura de directorios
+uploads_base = Path("uploads")
+uploads_imports = Path("uploads/imports")
+uploads_base.mkdir(exist_ok=True)
+uploads_imports.mkdir(parents=True, exist_ok=True)
+
+# Montar archivos estáticos solo si el directorio existe
+if uploads_base.exists():
+    try:
+        app.mount("/uploads", StaticFiles(directory=str(uploads_base)), name="uploads")
+    except Exception as e:
+        print(f"Advertencia: No se pudo montar directorio de uploads: {e}")

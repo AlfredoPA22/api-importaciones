@@ -1,0 +1,122 @@
+ACTUALIZACIÓN FRONTEND - HISTORIAL DE ESTADOS Y FECHA TENTATIVA DE ENTREGA
+================================================================================
+
+NUEVAS FUNCIONALIDADES AGREGADAS:
+1. Historial de estados (timeline) - se registra automáticamente
+2. Fecha tentativa de entrega - para mostrar contador de días
+
+ENDPOINT NUEVO:
+GET /imports/{id}/history
+Retorna: historial completo ordenado cronológicamente con estados, fechas y notas
+
+CAMBIOS EN ENDPOINTS EXISTENTES:
+
+POST /imports - Ahora acepta "fecha_tentativa_entrega"
+PUT /imports/{id} - Ahora acepta "fecha_tentativa_entrega" y registra cambios de estado en historial automáticamente
+GET /imports/{id} - Ahora incluye "fecha_tentativa_entrega" y "status_history"
+GET /share/{token} - Ahora incluye "fecha_tentativa_entrega" y "status_history" (visible para clientes)
+
+ESTRUCTURA DEL HISTORIAL:
+Cada entrada tiene:
+- status: código del estado
+- changed_at: fecha/hora del cambio
+- notes: descripción del cambio
+
+ESTADOS DISPONIBLES:
+EN_PROCESO, EN_TRANSITO, EN_TALLER, EN_ADUANA, ENTREGADO
+
+COMPONENTES A CREAR:
+
+1. TIMELINE DE ESTADOS:
+- Mostrar línea de tiempo vertical con todos los cambios
+- Indicar estado actual visualmente
+- Mostrar fecha/hora y notas de cada cambio
+- Usar colores diferentes por estado
+
+2. CONTADOR DE DÍAS HASTA ENTREGA:
+- Calcular días restantes desde fecha_tentativa_entrega
+- Mostrar "X días restantes" o "Atrasado X días"
+- Cambiar color según proximidad (verde/amarillo/naranja/rojo)
+- Formatear fecha de forma legible
+
+3. SELECTOR DE FECHA TENTATIVA:
+- Input de fecha para establecer/actualizar
+- Validar fechas
+- Actualizar contador automáticamente
+
+FUNCIONES UTILITARIAS NECESARIAS:
+
+calcularDiasRestantes(fechaISO) {
+  const fechaEntrega = new Date(fechaISO);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  fechaEntrega.setHours(0, 0, 0, 0);
+  const diferencia = fechaEntrega - hoy;
+  return Math.ceil(diferencia / (1000 * 60 * 60 * 24));
+}
+
+formatearFecha(fechaISO) {
+  return new Date(fechaISO).toLocaleDateString('es-ES', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  });
+}
+
+formatearFechaHora(fechaISO) {
+  return new Date(fechaISO).toLocaleString('es-ES', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+EJEMPLO DE USO:
+
+// Obtener historial
+const { history, current_status, fecha_tentativa_entrega } = 
+  await fetch(`/imports/${id}/history`).then(r => r.json());
+
+// Mostrar timeline
+history.forEach(entry => {
+  // entry.status, entry.changed_at, entry.notes
+});
+
+// Calcular días restantes
+const dias = calcularDiasRestantes(fecha_tentativa_entrega);
+
+// Actualizar fecha tentativa
+await fetch(`/imports/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify({
+    fecha_tentativa_entrega: nuevaFecha.toISOString()
+  })
+});
+
+PÁGINAS A ACTUALIZAR:
+
+1. Detalle de Importación (Admin):
+   - Agregar timeline de estados
+   - Agregar contador de días
+   - Agregar campo para editar fecha tentativa
+
+2. Vista de Cliente (URL Compartida):
+   - Mostrar timeline (solo lectura)
+   - Mostrar contador de días
+   - Mostrar fecha tentativa
+
+3. Lista de Importaciones:
+   - Opcional: badge con días restantes en tarjetas
+
+NOTAS IMPORTANTES:
+
+- El historial se genera automáticamente, no necesitas enviarlo
+- El historial viene ordenado cronológicamente (más antiguo primero)
+- La fecha tentativa es opcional, maneja el caso sin fecha
+- Todas las fechas vienen en formato ISO 8601
+- Los clientes pueden ver historial y fecha en URLs compartidas
+
+IMPLEMENTAR:
+1. Componente Timeline
+2. Componente Contador de Días
+3. Campo de fecha tentativa en formularios
+4. Actualizar todas las vistas de importación
+5. Probar flujo completo
+

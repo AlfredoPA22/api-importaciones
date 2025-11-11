@@ -61,6 +61,10 @@ htmlcov/
 # MongoDB
 *.mongodb
 
+# Uploads (mantener estructura pero no los archivos)
+uploads/
+!uploads/.gitkeep
+
 # Temporary files
 *.tmp
 *.bak

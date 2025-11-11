@@ -1,0 +1,145 @@
+PROMPT FRONTEND - IMPLEMENTACIÓN DE IMÁGENES EN IMPORTACIONES
+==============================================================
+
+NUEVA FUNCIONALIDAD: Gestión de imágenes para importaciones
+
+ENDPOINTS:
+
+1. SUBIR IMAGEN:
+POST /imports/{id}/images
+Content-Type: multipart/form-data
+Body: file (archivo de imagen)
+
+Validaciones:
+- Extensiones: .jpg, .jpeg, .png, .gif, .webp
+- Tamaño máximo: 10MB
+- Genera nombre único automáticamente
+
+Response:
+{
+  "message": "Imagen subida correctamente",
+  "image_url": "/uploads/imports/uuid-filename.jpg",
+  "filename": "uuid-filename.jpg"
+}
+
+2. ELIMINAR IMAGEN:
+DELETE /imports/{id}/images/{filename}
+
+Response:
+{
+  "message": "Imagen eliminada correctamente"
+}
+
+3. VER IMÁGENES:
+Las imágenes están disponibles en: http://localhost:8000/uploads/imports/{filename}
+Usar directamente en tags <img>
+
+ESTRUCTURA DE DATOS:
+
+Las importaciones ahora incluyen campo "images" (array de URLs):
+{
+  "id": "...",
+  "images": [
+    "/uploads/imports/abc123.jpg",
+    "/uploads/imports/def456.png"
+  ],
+  ...
+}
+
+EJEMPLO DE SUBIDA (JavaScript):
+
+const formData = new FormData();
+formData.append('file', archivo);
+
+const response = await fetch(`/imports/${importId}/images`, {
+  method: 'POST',
+  body: formData
+});
+
+const result = await response.json();
+// result.image_url contiene la URL
+
+EJEMPLO DE ELIMINACIÓN:
+
+const filename = imageUrl.split('/').pop(); // "abc123.jpg"
+await fetch(`/imports/${importId}/images/${filename}`, {
+  method: 'DELETE'
+});
+
+EJEMPLO DE MOSTRAR IMÁGENES:
+
+const baseUrl = 'http://localhost:8000';
+importacion.images.forEach(imageUrl => {
+  const fullUrl = `${baseUrl}${imageUrl}`;
+  // Usar en <img src={fullUrl} />
+});
+
+COMPONENTES A CREAR:
+
+1. COMPONENTE SUBIR IMAGEN:
+- Input file con validación
+- Preview antes de subir
+- Indicador de carga
+- Manejo de errores
+
+2. COMPONENTE GALERÍA:
+- Grid de imágenes
+- Botón eliminar en cada imagen
+- Vista responsiva
+- Lightbox opcional
+
+3. VALIDACIONES:
+- Tipo de archivo (jpg, png, gif, webp)
+- Tamaño máximo (10MB)
+- Mostrar mensajes de error claros
+
+FUNCIONES UTILITARIAS:
+
+validarArchivo(file) {
+  // Validar tipo y tamaño
+  // Retornar {valido: bool, errores: []}
+}
+
+getImageUrl(imagePath, baseUrl) {
+  return `${baseUrl}${imagePath}`;
+}
+
+INTEGRACIÓN:
+
+1. En detalle de importación (admin):
+   - Agregar sección de imágenes
+   - Botón subir + galería
+   - Permitir eliminar
+
+2. En vista de cliente (URL compartida):
+   - Mostrar galería (solo lectura)
+   - Sin botón eliminar
+
+FLUJO:
+
+1. Usuario selecciona archivo
+2. Validar (tipo, tamaño)
+3. Crear FormData y subir
+4. Recargar importación para ver nueva imagen
+5. Mostrar en galería
+
+ERRORES COMUNES:
+
+400 - Tipo no permitido: "Tipo de archivo no permitido..."
+400 - Muy grande: "Archivo demasiado grande. Máximo 10MB"
+404 - No encontrado: "Importación no encontrada"
+
+NOTAS:
+
+- URLs son relativas, agregar URL base del servidor
+- CORS ya configurado
+- Imágenes disponibles para clientes en URLs compartidas
+- Configurar URL base como variable de entorno en producción
+
+IMPLEMENTAR:
+1. Componente subir imagen
+2. Componente galería
+3. Validaciones
+4. Manejo de errores
+5. Integrar en páginas
+
