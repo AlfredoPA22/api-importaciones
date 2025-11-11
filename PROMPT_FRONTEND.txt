@@ -1,0 +1,208 @@
+PROMPT PARA INTEGRACIÓN FRONTEND - SISTEMA DE IMPORTACIONES API
+================================================================
+
+Necesito que integres el frontend con esta API de sistema de importaciones. La API está en FastAPI y tiene los siguientes endpoints:
+
+BASE URL: http://localhost:8000
+DOCUMENTACIÓN: http://localhost:8000/docs (Swagger UI)
+
+ENDPOINTS PRINCIPALES:
+
+1. AUTOS (/cars)
+   - GET /cars - Listar autos
+   - POST /cars - Crear auto (model, brand, year, sale_price, color, vin, description)
+   - GET /cars/{id} - Ver auto
+   - PUT /cars/{id} - Editar auto
+   - DELETE /cars/{id} - Eliminar auto
+
+2. CLIENTES (/clients)
+   - GET /clients - Listar clientes
+   - POST /clients - Crear cliente (name, email, phone, address, company, notes)
+   - GET /clients/{id} - Ver cliente
+   - PUT /clients/{id} - Editar cliente
+   - DELETE /clients/{id} - Eliminar cliente
+
+3. IMPORTACIONES (/imports)
+   - GET /imports - Listar importaciones
+   - POST /imports - Crear importación
+     Body: {
+       car_id: string (obligatorio),
+       client_id: string (obligatorio),
+       costos_reales: {campo: valor} (diccionario dinámico),
+       costos_cliente: {campo: valor} (diccionario dinámico),
+       notes: string,
+       status: "EN_PROCESO" | "EN_TRANSITO" | "EN_TALLER" | "EN_ADUANA" | "ENTREGADO"
+     }
+   - GET /imports/{id} - Ver importación (incluye auto y cliente)
+   - PUT /imports/{id} - Editar importación (los costos se fusionan, no se reemplazan)
+   - DELETE /imports/{id} - Eliminar importación
+   - GET /imports/car/{car_id} - Importaciones por auto
+   - GET /imports/client/{client_id} - Importaciones por cliente
+
+4. COMPARTIR (/imports/{import_id}/share y /share/{token})
+   - POST /imports/{import_id}/share - Generar URL compartida
+     Body opcional: {days_valid: number} (default: 365)
+     Retorna: {token, share_url, expires_at, is_active}
+   - GET /share/{token} - Ver importación pública (SOLO para clientes)
+     IMPORTANTE: Este endpoint NO muestra costos_reales, solo costos_cliente
+   - GET /imports/{import_id}/share - Listar tokens de una importación
+   - DELETE /imports/{import_id}/share/{token} - Desactivar token
+
+CARACTERÍSTICAS IMPORTANTES:
+
+1. COSTOS DUALES:
+   - costos_reales: Solo para administradores (interno)
+   - costos_cliente: Lo que ve el cliente (público en URLs compartidas)
+   - Ambos son diccionarios dinámicos: puedes agregar cualquier campo y valor numérico
+   - Ejemplo: {"flete": 1500.50, "seguro": 800.00, "aduana": 2500.75}
+
+2. ACTUALIZACIÓN DE COSTOS:
+   - Los costos se fusionan (merge), no se reemplazan
+   - Puedes agregar nuevos campos o actualizar existentes
+   - Si envías {"flete": 1500} y ya existe {"flete": 1000, "seguro": 800}, 
+     el resultado será {"flete": 1500, "seguro": 800}
+
+3. URLs COMPARTIDAS:
+   - El administrador genera una URL única para cada importación
+   - El cliente accede sin autenticación mediante /share/{token}
+   - El cliente SOLO ve costos_cliente, NO ve costos_reales
+   - Los tokens pueden expirar y desactivarse
+
+FLUJO DE TRABAJO:
+
+ADMINISTRADOR:
+1. Crear cliente (POST /clients)
+2. Crear auto (POST /cars)
+3. Crear importación (POST /imports) con car_id, client_id, costos_reales, costos_cliente
+4. Actualizar costos según avance (PUT /imports/{id})
+5. Generar URL compartida (POST /imports/{import_id}/share)
+6. Compartir URL con cliente
+
+CLIENTE:
+1. Recibir URL compartida
+2. Acceder a GET /share/{token}
+3. Ver su importación, auto y costos (solo costos_cliente)
+
+PÁGINAS SUGERIDAS:
+
+1. Dashboard Administrador:
+   - Lista de importaciones con filtros
+   - Acciones: crear, editar, ver, compartir
+
+2. Gestión de Clientes:
+   - Lista y formulario crear/editar
+   - Ver importaciones de cada cliente
+
+3. Gestión de Autos:
+   - Lista y formulario crear/editar
+   - Ver importaciones de cada auto
+
+4. Detalle de Importación (Admin):
+   - Información completa
+   - Costos reales y costos cliente (separados)
+   - Botón generar/compartir URL
+   - Formulario para agregar costos dinámicamente
+
+5. Vista de Cliente (Pública):
+   - Acceso mediante URL compartida
+   - Solo muestra costos_cliente
+   - Información del auto
+   - Estado de importación
+   - Diseño limpio y profesional
+
+COMPONENTES SUGERIDOS:
+
+1. Formulario de Costos Dinámicos:
+   - Agregar/editar campos de costo dinámicamente
+   - Separación visual entre costos_reales y costos_cliente
+   - Validación numérica
+
+2. Selector de Estado:
+   - Dropdown con estados: EN_PROCESO, EN_TRANSITO, EN_TALLER, EN_ADUANA, ENTREGADO
+   - Badge visual del estado
+
+3. Generador de URLs Compartidas:
+   - Botón generar URL
+   - Mostrar URL generada
+   - Copiar al portapapeles
+   - Desactivar token
+
+4. Vista de Costos:
+   - Tabla con costos
+   - Cálculo de totales
+   - Formato de moneda
+   - Diferencia visual entre costos reales y cliente
+
+EJEMPLOS DE USO:
+
+// Crear importación
+POST /imports
+{
+  "car_id": "507f1f77bcf86cd799439011",
+  "client_id": "507f1f77bcf86cd799439012",
+  "costos_reales": {
+    "flete_real": 1500.50,
+    "seguro_real": 800.00
+  },
+  "costos_cliente": {
+    "flete": 1800.00,
+    "seguro": 1000.00
+  },
+  "status": "EN_PROCESO"
+}
+
+// Agregar más costos
+PUT /imports/{id}
+{
+  "costos_reales": {"impuestos_real": 1200.00},
+  "costos_cliente": {"impuestos": 1500.00, "almacenamiento": 150.00}
+}
+
+// Generar URL compartida
+POST /imports/{import_id}/share
+Response: {
+  "token": "abc123...",
+  "share_url": "http://localhost:8000/share/abc123...",
+  "expires_at": "2025-12-31T23:59:59"
+}
+
+// Vista pública de cliente
+GET /share/{token}
+Response: {
+  "id": "...",
+  "costos_cliente": {...},  // Solo costos_cliente, NO costos_reales
+  "car": {...},
+  "client": {...},
+  "status": "EN_PROCESO"
+}
+
+NOTAS TÉCNICAS:
+
+- IDs son strings de MongoDB ObjectId
+- Fechas en formato ISO 8601
+- Costos son números flotantes
+- Manejar errores 400, 404, 403
+- Implementar loading states
+- Validar datos antes de enviar
+- URL base configurable (variable de entorno)
+
+MANEJO DE ERRORES:
+
+- 400: ID inválido o datos incorrectos
+- 404: Recurso no encontrado
+- 403: Token desactivado o expirado
+Formato: {"detail": "Mensaje de error"}
+
+TESTING:
+
+Puedes probar todos los endpoints en: http://localhost:8000/docs
+
+REQUISITOS:
+
+1. Manejar errores apropiadamente
+2. Validar datos antes de enviar
+3. Mostrar estados de carga
+4. Implementar buena UX para costos dinámicos
+5. Crear vista pública atractiva para clientes
+6. Separar claramente costos_reales (admin) de costos_cliente (público)
+
