@@ -3,31 +3,14 @@ from bson import ObjectId
 from datetime import datetime
 import uuid
 from pathlib import Path
-import os
-import base64
 from config.db import db
 from schemas.importation import importEntity, importsEntity
 from schemas.car import carEntity
 from schemas.client import clientEntity
 from models.importation import Import, ImportUpdate
+from utils.image_handler import save_image_file, delete_image_file
 
 imports = APIRouter()
-
-# Detectar si estamos en Vercel (serverless)
-IS_VERCEL = os.getenv("VERCEL") == "1"
-
-# Configurar directorio para imágenes
-# En Vercel, usar /tmp que es el único directorio escribible
-if IS_VERCEL:
-    UPLOAD_DIR = Path("/tmp/uploads/imports")
-else:
-    UPLOAD_DIR = Path("uploads/imports")
-
-# Intentar crear el directorio (puede fallar en Vercel, pero no debe bloquear)
-try:
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-except Exception as e:
-    print(f"Advertencia: No se pudo crear directorio de uploads: {e}")
 
 # Extensiones permitidas
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
@@ -369,21 +352,18 @@ async def upload_image(id: str, file: UploadFile = File(...)):
             detail=f"Archivo demasiado grande. Tamaño máximo: {MAX_FILE_SIZE / (1024*1024)}MB"
         )
     
-    # Generar nombre único para el archivo
-    file_id = str(uuid.uuid4())
-    filename = f"{file_id}{file_ext}"
+    # Generar nombre único para el archivo (referencia para Cloudinary)
+    unique_name = f"{uuid.uuid4()}{file_ext}"
     
-    # Guardar imagen usando el handler
-    from utils.image_handler import save_image_file
-    success, image_data, error = save_image_file(contents, filename)
+    # Guardar imagen usando Cloudinary
+    success, secure_url, error = save_image_file(contents, unique_name)
     
-    if not success:
-        raise HTTPException(status_code=500, detail=error or "Error al guardar imagen")
+    if not success or not secure_url:
+        raise HTTPException(status_code=500, detail=error or "Error al guardar imagen en Cloudinary")
     
-    # Agregar imagen a la importación
-    # En Vercel, image_data será base64. En local, será URL
+    # Agregar imagen a la importación (almacenamos directamente la URL segura)
     images = import_item.get("images", [])
-    images.append(image_data)
+    images.append(secure_url)
     
     db.imports.update_one(
         {"_id": ObjectId(id)},
@@ -397,9 +377,7 @@ async def upload_image(id: str, file: UploadFile = File(...)):
     
     return {
         "message": "Imagen subida correctamente",
-        "image_url": image_data if IS_VERCEL else image_data,  # En Vercel es base64, en local es URL
-        "filename": filename,
-        "storage_type": "base64" if IS_VERCEL else "file"
+        "image_url": secure_url
     }
 
 @imports.delete('/imports/{id}/images/{image_index}')
@@ -426,14 +404,10 @@ def delete_image(id: str, image_index: int):
     # Obtener la imagen a eliminar
     image_to_delete = images[image_index]
     
-    # Si es una URL (local), intentar eliminar el archivo
-    if not IS_VERCEL and image_to_delete.startswith("/uploads/"):
-        from utils.image_handler import delete_image_file
-        filename = Path(image_to_delete).name
-        success, error = delete_image_file(filename)
-        if not success and error:
-            # No fallar si no se puede eliminar el archivo, solo loguear
-            print(f"Advertencia: {error}")
+    # Intentar eliminar la imagen de Cloudinary
+    success, error = delete_image_file(image_to_delete)
+    if not success and error:
+        raise HTTPException(status_code=500, detail=error)
     
     # Eliminar imagen de la lista
     images.pop(image_index)

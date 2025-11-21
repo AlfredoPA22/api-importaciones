@@ -8,11 +8,11 @@
 - ✅ Manejo de errores sin bloquear el inicio de la aplicación
 - ✅ Conexión lazy (solo cuando se necesita)
 
-### 2. Manejo de Archivos Estáticos
+### 2. Manejo de Imágenes
 - ✅ Detección automática del entorno (Vercel vs local)
-- ✅ En Vercel: imágenes almacenadas como base64 en MongoDB
-- ✅ En local: imágenes almacenadas como archivos en el sistema de archivos
-- ✅ No se monta StaticFiles en Vercel (no funciona en serverless)
+- ✅ Todas las imágenes se suben a Cloudinary (sin depender del sistema de archivos de Vercel)
+- ✅ Se almacena directamente la `secure_url` en la base de datos para consumo inmediato en el frontend
+- ✅ No se monta StaticFiles en Vercel (no es necesario)
 
 ### 3. Validaciones de Base de Datos
 - ✅ Todas las rutas validan la conexión a MongoDB antes de usarla
@@ -29,11 +29,14 @@
 En el dashboard de Vercel, ve a tu proyecto y configura las siguientes variables de entorno:
 
 ```
-MONGODB_URL=mongodb+srv://alfredo:alfredo123@cluster0npm.eqdyu9u.mongodb.net
+MONGODB_URL=...
+CLOUDINARY_URL=cloudinary://<key>:<secret>@<cloud_name>
+CLOUDINARY_FOLDER=Home/Importaciones
+CORS_ORIGINS=https://public-client-importaciones.vercel.app
 VERCEL=1
 ```
 
-**IMPORTANTE**: Asegúrate de que `MONGODB_URL` esté configurada correctamente.
+**IMPORTANTE**: Asegúrate de que `MONGODB_URL` y `CLOUDINARY_URL` estén configuradas correctamente.
 
 ### 2. Desplegar el Proyecto
 
@@ -47,14 +50,14 @@ Una vez desplegado, verifica:
 - ✅ Endpoint `/health` responde correctamente
 - ✅ Endpoint `/` muestra el mensaje de bienvenida
 - ✅ Endpoints de la API funcionan correctamente
-- ✅ Las imágenes se almacenan como base64 en MongoDB (en Vercel)
+- ✅ Las imágenes nuevas generan URLs de Cloudinary accesibles públicamente
 
 ## Notas Importantes
 
 ### Imágenes en Vercel
-- Las imágenes se almacenan como **base64 en MongoDB** cuando se despliega en Vercel
-- Esto es necesario porque Vercel es serverless y no tiene sistema de archivos persistente
-- El frontend debe manejar imágenes base64 (data URLs) cuando esté en producción
+- Todas las imágenes se suben automáticamente a Cloudinary usando la carpeta configurada
+- La respuesta de la API devuelve directamente la `secure_url`
+- No se necesita un sistema de archivos local ni conversión a base64
 
 ### MongoDB
 - Asegúrate de que tu cluster de MongoDB permita conexiones desde cualquier IP (0.0.0.0/0)
@@ -78,15 +81,15 @@ Una vez desplegado, verifica:
 - Considera usar índices en MongoDB
 
 ### Las imágenes no se muestran
-- En Vercel, las imágenes están en base64 en MongoDB
-- El frontend debe usar las imágenes como data URLs (`data:image/jpeg;base64,...`)
-- Verifica que el campo `images` en la respuesta de la API contenga las imágenes en base64
+- Verifica que `CLOUDINARY_URL` y `CLOUDINARY_FOLDER` estén configurados correctamente
+- Revisa los logs de Vercel para detectar errores de subida a Cloudinary
+- Asegúrate de que el frontend use directamente la URL devuelta (`https://res.cloudinary.com/...`)
 
 ## Mejoras Futuras
 
 Para producción, considera:
-1. **Almacenamiento de imágenes**: Usar un servicio como AWS S3, Cloudinary o Vercel Blob Storage
-2. **CDN**: Servir las imágenes a través de un CDN para mejor rendimiento
-3. **Optimización de imágenes**: Comprimir y redimensionar imágenes antes de almacenarlas
+1. **Optimización de imágenes**: Comprimir y redimensionar antes de subirlas para ahorrar ancho de banda
+2. **CDN**: Configurar transformaciones/optimización de Cloudinary según necesidades del frontend
+3. **Optimización de consultas**: Agregar índices en colecciones críticas
 4. **Caché**: Implementar caché para consultas frecuentes
 

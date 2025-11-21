@@ -1,0 +1,29 @@
+PROMPT RÁPIDO PARA FRONTEND - IMÁGENES CON CLOUDINARY
+
+1. Subida:
+   - POST /imports/{import_id}/images
+   - Content-Type: multipart/form-data
+   - Campo requerido: file (jpg/jpeg/png/gif/webp, máx 10 MB)
+   - Respuesta => { message, image_url } con la secure_url de Cloudinary
+
+2. Eliminación:
+   - DELETE /imports/{import_id}/images/{image_index}
+   - image_index = posición en el array images del objeto importación
+   - El backend borra también en Cloudinary
+
+3. Consumo:
+   - importacion.images = array de URLs HTTPS listas para <img src="...">
+   - Guardar/mostrar esas URLs directamente
+
+4. Flujo FE sugerido:
+   - Validar archivo (tipo/tamaño)
+   - Crear FormData y enviar file
+   - Al recibir image_url, refrescar la importación para ver la lista actualizada
+   - Para eliminar, tomar el índice actual de la imagen mostrada y llamar al DELETE
+
+5. Variables:
+   - Usar variable de entorno para la URL base del backend (ej. VITE_API_URL)
+
+Mensaje ready-to-send:
+"El backend ya sube las imágenes a Cloudinary. Envíen un FormData con el campo file al POST /imports/{id}/images; la respuesta trae la secure_url. Para borrar llamen DELETE /imports/{id}/images/{index} usando el índice actual del array images. Mostramos las imágenes directamente con esa URL."
+

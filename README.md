@@ -24,6 +24,7 @@ API REST desarrollada con FastAPI para gestionar autos, clientes, importaciones 
 
 - Python 3.8+
 - MongoDB (local o remoto)
+- Cuenta de Cloudinary (para almacenar imágenes)
 
 ### Pasos de instalación
 
@@ -47,9 +48,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Configurar la conexión a MongoDB:
-   - Editar `config/db.py` con tu cadena de conexión de MongoDB
-   - O configurar la variable de entorno `MONGODB_URL`
+4. Configurar variables de entorno:
+
+   | Variable            | Descripción                                                                 |
+   |---------------------|-----------------------------------------------------------------------------|
+   | `MONGODB_URL`       | Cadena de conexión a MongoDB                                                |
+   | `CLOUDINARY_URL`    | URL de conexión completa provista por Cloudinary                            |
+   | `CLOUDINARY_FOLDER` | Carpeta destino dentro de Cloudinary (por defecto `Home/Importaciones`)     |
+   | `CORS_ORIGINS`      | Lista separada por comas de orígenes permitidos para CORS (opcional)        |
 
 5. Ejecutar el servidor:
 ```bash
@@ -108,6 +114,10 @@ La API estará disponible en: `http://localhost:8000`
 ### Validaciones
 - Un auto solo puede pertenecer a una importación
 - No se pueden eliminar autos/clientes con importaciones asociadas
+
+### Gestión de imágenes
+- Las imágenes se almacenan en Cloudinary dentro de la carpeta configurada (por defecto `Home/Importaciones`)
+- En la base de datos se guarda directamente la URL segura (`secure_url`) para que el frontend pueda renderizarla sin pasos adicionales
 
 ## Estructura del proyecto
 
