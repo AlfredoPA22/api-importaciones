@@ -14,11 +14,23 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configurar CORS
+# Configurar CORS dinámicamente (útil para Vercel)
+cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+if cors_origins_env.strip() == "*":
+    allowed_origins = ["*"]
+    allow_credentials = False  # No se permite "*" con credenciales
+else:
+    allowed_origins = [
+        origin.strip()
+        for origin in cors_origins_env.split(",")
+        if origin.strip()
+    ]
+    allow_credentials = True
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción, especificar dominios específicos
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
